@@ -1098,7 +1098,7 @@
                 </div>
                 <div class="loading-step" id="step2">
                     <span class="step-icon">⏳</span>
-                    <span>Sending to Claude AI...</span>
+                    <span>Analyzing resume content...</span>
                 </div>
                 <div class="loading-step" id="step3">
                     <span class="step-icon">⏳</span>
@@ -1110,8 +1110,8 @@
         <!-- Error Section -->
         <section class="error-section" id="errorSection">
             <div class="error-card">
-                <div class="error-icon">⚠️</div>
-                <h3>Analysis Failed</h3>
+                <div class="error-icon" id="errorIcon">⚠️</div>
+                <h3 id="errorTitle">Analysis Failed</h3>
                 <p id="errorMessage">Something went wrong. Please try again.</p>
                 <button class="retry-btn" id="retryBtn">Try Again</button>
             </div>
@@ -1328,6 +1328,13 @@
                 // Step 2: Analyze resume
                 setStep(2, 'active');
                 await delay(800);
+
+                // Pre-check: Verify if the uploaded PDF is a resume
+                const isResume = checkIfResume(text);
+                if (!isResume) {
+                    throw new Error('The uploaded file does not appear to be a resume. Please make sure to upload a valid resume containing your contact details, education, work experience, or skills.');
+                }
+
                 const analysis = analyzeResume(text);
                 setStep(2, 'done');
 
@@ -1341,6 +1348,10 @@
                 showSection('results');
             } catch (err) {
                 console.error('Analysis error:', err);
+                const isNotResumeError = err.message.includes('does not appear to be a resume');
+                
+                document.getElementById('errorIcon').textContent = isNotResumeError ? '📄' : '⚠️';
+                document.getElementById('errorTitle').textContent = isNotResumeError ? 'Not a Resume Detected' : 'Analysis Failed';
                 errorMessage.textContent = err.message || 'Something went wrong. Please try again.';
                 showSection('error');
             }
@@ -1419,6 +1430,50 @@
             { name: 'Awards / Achievements', patterns: ['awards','achievements','honors','recognition','accomplishments','accolades'] },
             { name: 'Publications / Research', patterns: ['publications','research','papers','conferences','presentations','patents'] }
         ];
+
+        function checkIfResume(text) {
+            if (!text) return false;
+            const lower = text.toLowerCase();
+            
+            // 1. Check for contact indicators
+            const hasEmail = /[\w.-]+@[\w.-]+\.\w{2,}/.test(text);
+            const hasPhone = /(\+?\d[\d\s\-().]{7,}\d)/.test(text);
+            const hasLinkedIn = /linkedin\.com|linkedin/i.test(text);
+            const hasGitHub = /github\.com|github/i.test(text);
+            const hasPortfolio = /portfolio|website/i.test(text);
+            const contactFound = hasEmail || hasPhone || hasLinkedIn || hasGitHub || hasPortfolio;
+
+            // 2. Check for standard resume sections
+            const resumeSections = ['experience', 'education', 'skills', 'projects', 'summary', 'objective', 'employment', 'work history', 'certifications'];
+            let sectionsCount = 0;
+            resumeSections.forEach(sec => {
+                const regex = new RegExp('\\b' + sec + '\\b', 'i');
+                if (regex.test(lower)) sectionsCount++;
+            });
+
+            // 3. Check for general resume indicator words
+            const resumeWords = ['resume', 'cv', 'curriculum vitae', 'qualification', 'achievements', 'responsibilities', 'technologies', 'hobbies', 'languages'];
+            let resumeWordsFound = 0;
+            resumeWords.forEach(word => {
+                const regex = new RegExp('\\b' + word + '\\b', 'i');
+                if (regex.test(lower)) resumeWordsFound++;
+            });
+
+            // 4. Decision logic
+            // A resume should have at least one contact indicator and at least one standard section or resume word.
+            // If it has multiple standard sections (3+), it's highly likely to be a resume even without contact info.
+            if (contactFound && (sectionsCount >= 1 || resumeWordsFound >= 1)) {
+                return true;
+            }
+            if (sectionsCount >= 3) {
+                return true;
+            }
+            if (sectionsCount >= 1 && resumeWordsFound >= 2) {
+                return true;
+            }
+            
+            return false;
+        }
 
         function analyzeResume(text) {
             const lower = text.toLowerCase();
