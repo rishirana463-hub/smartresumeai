@@ -1434,45 +1434,86 @@
         function checkIfResume(text) {
             if (!text) return false;
             const lower = text.toLowerCase();
-            
-            // 1. Check for contact indicators
+            const words = lower.split(/\s+/).filter(Boolean);
+            const wordCount = words.length;
+            const lines = text.split('\n').map(l => l.trim().toLowerCase()).filter(Boolean);
+
+            let points = 0;
+
+            // 1. Word Count Range Check (Resumes are typically 80 to 1500 words)
+            if (wordCount >= 80 && wordCount <= 1500) {
+                points += 2;
+            } else if (wordCount >= 50 && wordCount <= 2200) {
+                points += 1;
+            } else {
+                return false; // Instantly fail extremely short or long files (e.g. books, blank pages)
+            }
+
+            // 2. Contact Details Check (Crucial for resumes)
             const hasEmail = /[\w.-]+@[\w.-]+\.\w{2,}/.test(text);
             const hasPhone = /(\+?\d[\d\s\-().]{7,}\d)/.test(text);
             const hasLinkedIn = /linkedin\.com|linkedin/i.test(text);
             const hasGitHub = /github\.com|github/i.test(text);
-            const hasPortfolio = /portfolio|website/i.test(text);
-            const contactFound = hasEmail || hasPhone || hasLinkedIn || hasGitHub || hasPortfolio;
-
-            // 2. Check for standard resume sections
-            const resumeSections = ['experience', 'education', 'skills', 'projects', 'summary', 'objective', 'employment', 'work history', 'certifications'];
-            let sectionsCount = 0;
-            resumeSections.forEach(sec => {
-                const regex = new RegExp('\\b' + sec + '\\b', 'i');
-                if (regex.test(lower)) sectionsCount++;
-            });
-
-            // 3. Check for general resume indicator words
-            const resumeWords = ['resume', 'cv', 'curriculum vitae', 'qualification', 'achievements', 'responsibilities', 'technologies', 'hobbies', 'languages'];
-            let resumeWordsFound = 0;
-            resumeWords.forEach(word => {
-                const regex = new RegExp('\\b' + word + '\\b', 'i');
-                if (regex.test(lower)) resumeWordsFound++;
-            });
-
-            // 4. Decision logic
-            // A resume should have at least one contact indicator and at least one standard section or resume word.
-            // If it has multiple standard sections (3+), it's highly likely to be a resume even without contact info.
-            if (contactFound && (sectionsCount >= 1 || resumeWordsFound >= 1)) {
-                return true;
-            }
-            if (sectionsCount >= 3) {
-                return true;
-            }
-            if (sectionsCount >= 1 && resumeWordsFound >= 2) {
-                return true;
-            }
+            const hasPortfolio = /portfolio|website|\.com|\.io|\.dev/i.test(text);
             
-            return false;
+            if (hasEmail) points += 2;
+            if (hasPhone) points += 1;
+            if (hasLinkedIn || hasGitHub || hasPortfolio) points += 1;
+
+            // 3. Standalone Heading Check (Section titles appearing on short, isolated lines)
+            let headingPoints = 0;
+            const targetHeadings = [
+                'experience', 'work experience', 'professional experience', 'employment', 'work history', 'career history',
+                'education', 'academic background', 'academic history', 'academic profile',
+                'skills', 'technical skills', 'core competencies', 'key skills', 'competencies', 'proficiencies',
+                'projects', 'personal projects', 'key projects', 'academic projects',
+                'summary', 'professional summary', 'career objective', 'objective', 'about me', 'profile'
+            ];
+            
+            lines.forEach(line => {
+                if (line.length > 2 && line.length < 40) {
+                    const matchesHeading = targetHeadings.some(h => line === h || line.startsWith(h + ':') || line.startsWith(h + ' ') || line.endsWith(' ' + h));
+                    if (matchesHeading) {
+                        headingPoints += 1;
+                    }
+                }
+            });
+            points += Math.min(4, headingPoints);
+
+            // 4. Bullet Points / List density Check
+            const hasBullets = /[•\-–—►▪▸✓✔⦁]/.test(text) || lines.filter(l => /^\s*[-•*]\s/.test(l)).length > 2;
+            if (hasBullets) points += 1;
+
+            // 5. Resume Action Verbs Check
+            let verbCount = 0;
+            const commonVerbs = ['led', 'built', 'managed', 'developed', 'designed', 'created', 'implemented', 'optimized', 'coordinated', 'achieved', 'automated'];
+            commonVerbs.forEach(v => {
+                const regex = new RegExp('\\b' + v + '\\b', 'i');
+                if (regex.test(lower)) verbCount++;
+            });
+            if (verbCount >= 3) points += 1;
+
+            // 6. Resume Specific Keywords
+            let keywordPoints = 0;
+            const resumeKeywords = ['gpa', 'cgpa', 'graduated', 'university', 'college', 'degree', 'intern', 'internship', 'bachelor', 'master', 'resume', 'cv'];
+            resumeKeywords.forEach(kw => {
+                const regex = new RegExp('\\b' + kw + '\\b', 'i');
+                if (regex.test(lower)) keywordPoints++;
+            });
+            points += Math.min(2, Math.floor(keywordPoints / 2));
+
+            // Core Constraints:
+            // 1. Must contain an email or phone number
+            // 2. Must contain at least one valid resume section heading (Experience, Education, Skills, etc.) on its own short line
+            const isEmailOrPhoneFound = hasEmail || hasPhone;
+            const hasResumeHeading = lines.some(line => {
+                if (line.length > 2 && line.length < 40) {
+                    return ['experience', 'education', 'skills', 'projects', 'work experience', 'technical skills', 'employment'].some(h => line === h || line.startsWith(h + ':') || line.startsWith(h + ' ') || line.endsWith(' ' + h));
+                }
+                return false;
+            });
+
+            return points >= 6 && isEmailOrPhoneFound && hasResumeHeading;
         }
 
         function analyzeResume(text) {
