@@ -1458,9 +1458,9 @@
             let points = 0;
 
             // 1. Word Count Range Check (Resumes are typically 80 to 1500 words)
-            if (wordCount >= 80 && wordCount <= 1500) {
+            if (wordCount >= 80 && wordCount <= 1600) {
                 points += 2;
-            } else if (wordCount >= 50 && wordCount <= 2200) {
+            } else if (wordCount >= 40 && wordCount <= 2500) {
                 points += 1;
             } else {
                 return false; // Instantly fail extremely short or long files (e.g. books, blank pages)
@@ -1488,7 +1488,7 @@
             ];
             
             lines.forEach(line => {
-                if (line.length > 2 && line.length < 40) {
+                if (line.length > 2 && line.length < 45) {
                     const matchesHeading = targetHeadings.some(h => line === h || line.startsWith(h + ':') || line.startsWith(h + ' ') || line.endsWith(' ' + h));
                     if (matchesHeading) {
                         headingPoints += 1;
@@ -1520,17 +1520,11 @@
             points += Math.min(2, Math.floor(keywordPoints / 2));
 
             // Core Constraints:
-            // 1. Must contain an email or phone number
-            // 2. Must contain at least one valid resume section heading (Experience, Education, Skills, etc.) on its own short line
+            // 1. Must contain at least one contact channel (email or phone) to be a functional resume
+            // 2. Must score at least 4 points on the resume indicators checklist
             const isEmailOrPhoneFound = hasEmail || hasPhone;
-            const hasResumeHeading = lines.some(line => {
-                if (line.length > 2 && line.length < 40) {
-                    return ['experience', 'education', 'skills', 'projects', 'work experience', 'technical skills', 'employment'].some(h => line === h || line.startsWith(h + ':') || line.startsWith(h + ' ') || line.endsWith(' ' + h));
-                }
-                return false;
-            });
 
-            return points >= 6 && isEmailOrPhoneFound && hasResumeHeading;
+            return points >= 4 && isEmailOrPhoneFound;
         }
 
         function analyzeResume(text) {
