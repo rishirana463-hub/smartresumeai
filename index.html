@@ -1438,6 +1438,23 @@
             const wordCount = words.length;
             const lines = text.split('\n').map(l => l.trim().toLowerCase()).filter(Boolean);
 
+            // --- Absolute Dealbreakers (Blacklist) ---
+            // If the document contains strongly non-resume indicators, block it immediately.
+            const syllabusIndicators = ['midterm', 'office hours', 'grading policy', 'prerequisites', 'homework', 'course description', 'class schedule', 'syllabus'];
+            const paperIndicators = ['abstract', 'literature review', 'methodology', 'et al.', 'table 1', 'figure 1'];
+            const invoiceIndicators = ['invoice', 'amount due', 'subtotal', 'total due', 'invoice date', 'bill to'];
+            const generalIndicators = ['table of contents', 'chapter 1', 'terms of service', 'privacy policy'];
+            
+            const isSyllabus = syllabusIndicators.filter(word => new RegExp('\\b' + word + '\\b', 'i').test(lower)).length >= 2 || lower.includes('syllabus');
+            const isPaper = paperIndicators.filter(word => new RegExp('\\b' + word + '\\b', 'i').test(lower)).length >= 2 || lower.includes('et al.');
+            const isInvoice = invoiceIndicators.filter(word => new RegExp('\\b' + word + '\\b', 'i').test(lower)).length >= 2 || lower.includes('invoice');
+            const isBook = generalIndicators.filter(word => new RegExp('\\b' + word + '\\b', 'i').test(lower)).length >= 2;
+            const isCoverLetter = /\bdear\b/i.test(lower) && /\bsincerely\b/i.test(lower);
+
+            if (isSyllabus || isPaper || isInvoice || isBook || isCoverLetter) {
+                return false;
+            }
+
             let points = 0;
 
             // 1. Word Count Range Check (Resumes are typically 80 to 1500 words)
